@@ -353,15 +353,24 @@ Layers 1–3 share the same JSON format:
     },
     {
       "path": "**/*mapper*.xml",
-      "rule": "Check SQL for injection risks, parameter errors, and missing closing tags"
+      "rule_file": "docs/sql-rules.md"
+    },
+    {
+      "path": "web/**/*.ts",
+      "rule": "Focus on XSS vulnerabilities.",
+      "rule_file": "docs/frontend-rules.md"
     }
   ]
 }
 ```
 
 - `path` supports `**` recursive matching and `{java,kt}` brace expansion.
+- `rule` is used for inline rule text.
+- `rule_file` references an external `.md` or `.txt` file as rule content. The path is relative to the directory containing the current `rule.json`.
+- If both `rule` and `rule_file` are provided, their contents are merged.
+- For security reasons, `rule_file` cannot reference files outside its base directory (no `../` path traversal), and the file size must not exceed 100KB.
 - Within each layer, rules are evaluated in declaration order — the first match wins.
-- If a rule file does not exist, it is silently skipped.
+- Missing rule files are skipped silently.
 
 ### Path Filtering
 

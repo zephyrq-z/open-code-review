@@ -176,8 +176,9 @@ func expandBraces(s string) []string {
 
 // ProjectRuleEntry is a single entry in .opencodereview/rule.json.
 type ProjectRuleEntry struct {
-	Path string `json:"path"`
-	Rule string `json:"rule"`
+	Path     string `json:"path"`
+	Rule     string `json:"rule"`
+	RuleFile string `json:"rule_file,omitempty"`
 }
 
 // ProjectRule holds rules loaded from <repoDir>/.opencodereview/rule.json.
@@ -302,12 +303,85 @@ func buildFileFilter(layers ...*ProjectRule) *FileFilter {
 	return nil
 }
 
+// resolveRuleFiles reads external rule files and merges their content into the Rule field.
+func resolveRuleFiles(pr *ProjectRule, baseDir string) {
+	if pr == nil || baseDir == "" {
+		return
+	}
+
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[WARN] Failed to get absolute path for base dir %s: %v\n", baseDir, err)
+		return
+	}
+	// Ensure base directory path ends with separator for proper prefix matching
+	if !strings.HasSuffix(absBase, string(filepath.Separator)) {
+		absBase += string(filepath.Separator)
+	}
+
+	for i := range pr.Rules {
+		entry := &pr.Rules[i]
+		if entry.RuleFile == "" {
+			continue
+		}
+
+		absFile, err := filepath.Abs(filepath.Join(baseDir, entry.RuleFile))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[WARN] Failed to get absolute path for rule file %s: %v\n", entry.RuleFile, err)
+			continue
+		}
+
+		// Security check: prevent directory traversal
+		if !strings.HasPrefix(absFile+string(filepath.Separator), absBase) && absFile != strings.TrimSuffix(absBase, string(filepath.Separator)) {
+			fmt.Fprintf(os.Stderr, "[WARN] Security violation: rule file %s is outside the base directory %s\n", entry.RuleFile, baseDir)
+			continue
+		}
+
+		// Extension check
+		ext := strings.ToLower(filepath.Ext(absFile))
+		if ext != ".md" && ext != ".txt" {
+			fmt.Fprintf(os.Stderr, "[WARN] Unsupported rule file extension %s for %s (only .md and .txt are allowed)\n", ext, entry.RuleFile)
+			continue
+		}
+
+		// File size check
+		info, err := os.Stat(absFile)
+		if err != nil {
+			if os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "[WARN] Rule file not found: %s\n", absFile)
+			} else {
+				fmt.Fprintf(os.Stderr, "[WARN] Failed to stat rule file %s: %v\n", absFile, err)
+			}
+			continue
+		}
+		if info.Size() > 100*1024 {
+			fmt.Fprintf(os.Stderr, "[WARN] Rule file %s is too large (%d bytes, max 100KB)\n", absFile, info.Size())
+			continue
+		}
+
+		// Read file content
+		content, err := os.ReadFile(absFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[WARN] Failed to read rule file %s: %v\n", absFile, err)
+			continue
+		}
+
+		fileContent := strings.TrimRight(string(content), "\n")
+		if entry.Rule != "" {
+			entry.Rule = entry.Rule + "\n\n" + fileContent
+		} else {
+			entry.Rule = fileContent
+		}
+	}
+}
+
 func loadGlobalRule() (*ProjectRule, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, nil
 	}
-	path := filepath.Join(home, ".opencodereview", "rule.json")
+	baseDir := filepath.Join(home, ".opencodereview")
+	path := filepath.Join(baseDir, "rule.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -319,6 +393,7 @@ func loadGlobalRule() (*ProjectRule, error) {
 	if err := json.Unmarshal(data, &pr); err != nil {
 		return nil, fmt.Errorf("unmarshal global rule: %w", err)
 	}
+	resolveRuleFiles(&pr, baseDir)
 	return &pr, nil
 }
 
@@ -331,11 +406,13 @@ func loadRuleFile(path string) (*ProjectRule, error) {
 	if err := json.Unmarshal(data, &pr); err != nil {
 		return nil, fmt.Errorf("unmarshal rule file %s: %w", path, err)
 	}
+	resolveRuleFiles(&pr, filepath.Dir(path))
 	return &pr, nil
 }
 
 func loadProjectRule(repoDir string) (*ProjectRule, error) {
-	path := filepath.Join(repoDir, ".opencodereview", "rule.json")
+	baseDir := filepath.Join(repoDir, ".opencodereview")
+	path := filepath.Join(baseDir, "rule.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -347,6 +424,7 @@ func loadProjectRule(repoDir string) (*ProjectRule, error) {
 	if err := json.Unmarshal(data, &pr); err != nil {
 		return nil, fmt.Errorf("unmarshal project rule: %w", err)
 	}
+	resolveRuleFiles(&pr, baseDir)
 	return &pr, nil
 }
 

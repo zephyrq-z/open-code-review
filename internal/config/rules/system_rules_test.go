@@ -670,3 +670,82 @@ func TestNewResolver_BraceExpansionInProjectRule(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveRuleFiles_Basic(t *testing.T) {
+	dir := t.TempDir()
+	mdContent := "# Rule from file\nCheck for memory leaks."
+	err := os.WriteFile(filepath.Join(dir, "rule.md"), []byte(mdContent), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pr := &ProjectRule{
+		Rules: []ProjectRuleEntry{
+			{Path: "*.go", Rule: "Inline rule.", RuleFile: "rule.md"},
+			{Path: "*.py", RuleFile: "rule.md"},
+		},
+	}
+	resolveRuleFiles(pr, dir)
+
+	if !strings.Contains(pr.Rules[0].Rule, "Inline rule.") || !strings.Contains(pr.Rules[0].Rule, "Check for memory leaks.") {
+		t.Errorf("expected merged rule, got %q", pr.Rules[0].Rule)
+	}
+	if pr.Rules[1].Rule != mdContent {
+		t.Errorf("expected file content only, got %q", pr.Rules[1].Rule)
+	}
+}
+
+func TestResolveRuleFiles_Security(t *testing.T) {
+	dir := t.TempDir()
+	pr := &ProjectRule{
+		Rules: []ProjectRuleEntry{
+			{Path: "*.go", RuleFile: "../outside.md"},
+		},
+	}
+	resolveRuleFiles(pr, dir)
+	if pr.Rules[0].Rule != "" {
+		t.Errorf("expected empty rule due to security violation, got %q", pr.Rules[0].Rule)
+	}
+}
+
+func TestResolveRuleFiles_UnsupportedExtension(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "rule.json"), []byte("{}"), 0644)
+	pr := &ProjectRule{
+		Rules: []ProjectRuleEntry{
+			{Path: "*.go", RuleFile: "rule.json"},
+		},
+	}
+	resolveRuleFiles(pr, dir)
+	if pr.Rules[0].Rule != "" {
+		t.Errorf("expected empty rule due to unsupported extension, got %q", pr.Rules[0].Rule)
+	}
+}
+
+func TestResolveRuleFiles_TooLarge(t *testing.T) {
+	dir := t.TempDir()
+	largeContent := strings.Repeat("a", 101*1024)
+	os.WriteFile(filepath.Join(dir, "large.md"), []byte(largeContent), 0644)
+	pr := &ProjectRule{
+		Rules: []ProjectRuleEntry{
+			{Path: "*.go", RuleFile: "large.md"},
+		},
+	}
+	resolveRuleFiles(pr, dir)
+	if pr.Rules[0].Rule != "" {
+		t.Errorf("expected empty rule due to large file, got %q", pr.Rules[0].Rule)
+	}
+}
+
+func TestResolveRuleFiles_MissingFile(t *testing.T) {
+	dir := t.TempDir()
+	pr := &ProjectRule{
+		Rules: []ProjectRuleEntry{
+			{Path: "*.go", Rule: "Keep me", RuleFile: "missing.md"},
+		},
+	}
+	resolveRuleFiles(pr, dir)
+	if pr.Rules[0].Rule != "Keep me" {
+		t.Errorf("expected original rule to be kept, got %q", pr.Rules[0].Rule)
+	}
+}
