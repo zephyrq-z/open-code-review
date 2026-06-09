@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -127,7 +128,7 @@ func parseReviewFlags(args []string) (reviewOptions, error) {
 	a.IntVar(&opts.perFileTimeout, "timeout", 10, "concurrent task timeout in minutes")
 	a.StringVar(&opts.audience, "audience", "human", "output audience: human (show progress) or agent (summary only)")
 	a.StringVarP(&opts.background, "background", "b", "", "optional requirement/business context for the review")
-	a.IntVar(&opts.maxTools, "max-tools", 0, "max tool call rounds per file; only takes effect when greater than template default")
+	a.IntVar(&opts.maxTools, "max-tools", 0, "max tool call rounds per file (0 = template default; min 10)")
 	a.IntVar(&opts.maxGitProcs, "max-git-procs", 16, "max concurrent git subprocesses")
 	a.BoolVarP(&opts.preview, "preview", "p", false, "preview which files will be reviewed without running the LLM")
 
@@ -161,8 +162,13 @@ func parseReviewFlags(args []string) (reviewOptions, error) {
 		return opts, fmt.Errorf("invalid --audience value %q: must be 'human' or 'agent'", opts.audience)
 	}
 
+	const minMaxTools = 10
 	if opts.maxTools < 0 {
 		return opts, fmt.Errorf("--max-tools must be a non-negative integer (0 means use template default)")
+	}
+	if opts.maxTools > 0 && opts.maxTools < minMaxTools {
+		fmt.Fprintf(os.Stderr, "[ocr] --max-tools %d is below minimum %d, using %d\n", opts.maxTools, minMaxTools, minMaxTools)
+		opts.maxTools = minMaxTools
 	}
 
 	if opts.maxGitProcs < 0 {
@@ -209,7 +215,7 @@ Flags:
   --concurrency int       max concurrent file reviews (default 8)
   --max-git-procs int     max concurrent git subprocesses (default 16)
   --from string           source ref to start diff from (e.g., 'main')
-  --max-tools int         max tool call rounds per file; only takes effect when greater than template default
+  --max-tools int         max tool call rounds per file (0 = template default; min 10)
   -p, --preview           preview which files will be reviewed without running the LLM
   --repo string           root directory of the git repository (default: current dir)
   --rule string           path to JSON file with system review rules
