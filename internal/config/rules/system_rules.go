@@ -176,9 +176,9 @@ func expandBraces(s string) []string {
 
 // ProjectRuleEntry is a single entry in .opencodereview/rule.json.
 type ProjectRuleEntry struct {
-	Path     string `json:"path"`
-	Rule     string `json:"rule"`
-	RuleFile string `json:"rule_file,omitempty"`
+	Path        string `json:"path"`
+	Rule        string `json:"rule"`
+	UseFilePath bool   `json:"use_file_path,omitempty"`
 }
 
 // ProjectRule holds rules loaded from <repoDir>/.opencodereview/rule.json.
@@ -303,7 +303,7 @@ func buildFileFilter(layers ...*ProjectRule) *FileFilter {
 	return nil
 }
 
-// resolveRuleFiles reads external rule files and merges their content into the Rule field.
+// resolveRuleFiles reads external rule files if UseFilePath is true and replaces the Rule field with the file content.
 func resolveRuleFiles(pr *ProjectRule, baseDir string) {
 	if pr == nil || baseDir == "" {
 		return
@@ -321,26 +321,27 @@ func resolveRuleFiles(pr *ProjectRule, baseDir string) {
 
 	for i := range pr.Rules {
 		entry := &pr.Rules[i]
-		if entry.RuleFile == "" {
+		if !entry.UseFilePath || entry.Rule == "" {
 			continue
 		}
 
-		absFile, err := filepath.Abs(filepath.Join(baseDir, entry.RuleFile))
+		filePath := entry.Rule
+		absFile, err := filepath.Abs(filepath.Join(baseDir, filePath))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[WARN] Failed to get absolute path for rule file %s: %v\n", entry.RuleFile, err)
+			fmt.Fprintf(os.Stderr, "[WARN] Failed to get absolute path for rule file %s: %v\n", filePath, err)
 			continue
 		}
 
 		// Security check: prevent directory traversal
 		if !strings.HasPrefix(absFile+string(filepath.Separator), absBase) && absFile != strings.TrimSuffix(absBase, string(filepath.Separator)) {
-			fmt.Fprintf(os.Stderr, "[WARN] Security violation: rule file %s is outside the base directory %s\n", entry.RuleFile, baseDir)
+			fmt.Fprintf(os.Stderr, "[WARN] Security violation: rule file %s is outside the base directory %s\n", filePath, baseDir)
 			continue
 		}
 
 		// Extension check
 		ext := strings.ToLower(filepath.Ext(absFile))
 		if ext != ".md" && ext != ".txt" {
-			fmt.Fprintf(os.Stderr, "[WARN] Unsupported rule file extension %s for %s (only .md and .txt are allowed)\n", ext, entry.RuleFile)
+			fmt.Fprintf(os.Stderr, "[WARN] Unsupported rule file extension %s for %s (only .md and .txt are allowed)\n", ext, filePath)
 			continue
 		}
 
@@ -366,12 +367,8 @@ func resolveRuleFiles(pr *ProjectRule, baseDir string) {
 			continue
 		}
 
-		fileContent := strings.TrimRight(string(content), "\n")
-		if entry.Rule != "" {
-			entry.Rule = entry.Rule + "\n\n" + fileContent
-		} else {
-			entry.Rule = fileContent
-		}
+		// Overwrite the Rule field with the file content
+		entry.Rule = strings.TrimRight(string(content), "\n")
 	}
 }
 

@@ -681,17 +681,13 @@ func TestResolveRuleFiles_Basic(t *testing.T) {
 
 	pr := &ProjectRule{
 		Rules: []ProjectRuleEntry{
-			{Path: "*.go", Rule: "Inline rule.", RuleFile: "rule.md"},
-			{Path: "*.py", RuleFile: "rule.md"},
+			{Path: "*.go", Rule: "rule.md", UseFilePath: true},
 		},
 	}
 	resolveRuleFiles(pr, dir)
 
-	if !strings.Contains(pr.Rules[0].Rule, "Inline rule.") || !strings.Contains(pr.Rules[0].Rule, "Check for memory leaks.") {
-		t.Errorf("expected merged rule, got %q", pr.Rules[0].Rule)
-	}
-	if pr.Rules[1].Rule != mdContent {
-		t.Errorf("expected file content only, got %q", pr.Rules[1].Rule)
+	if pr.Rules[0].Rule != mdContent {
+		t.Errorf("expected file content only, got %q", pr.Rules[0].Rule)
 	}
 }
 
@@ -699,12 +695,12 @@ func TestResolveRuleFiles_Security(t *testing.T) {
 	dir := t.TempDir()
 	pr := &ProjectRule{
 		Rules: []ProjectRuleEntry{
-			{Path: "*.go", RuleFile: "../outside.md"},
+			{Path: "*.go", Rule: "../outside.md", UseFilePath: true},
 		},
 	}
 	resolveRuleFiles(pr, dir)
-	if pr.Rules[0].Rule != "" {
-		t.Errorf("expected empty rule due to security violation, got %q", pr.Rules[0].Rule)
+	if pr.Rules[0].Rule != "../outside.md" {
+		t.Errorf("expected rule to remain unchanged due to security violation, got %q", pr.Rules[0].Rule)
 	}
 }
 
@@ -713,12 +709,12 @@ func TestResolveRuleFiles_UnsupportedExtension(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "rule.json"), []byte("{}"), 0644)
 	pr := &ProjectRule{
 		Rules: []ProjectRuleEntry{
-			{Path: "*.go", RuleFile: "rule.json"},
+			{Path: "*.go", Rule: "rule.json", UseFilePath: true},
 		},
 	}
 	resolveRuleFiles(pr, dir)
-	if pr.Rules[0].Rule != "" {
-		t.Errorf("expected empty rule due to unsupported extension, got %q", pr.Rules[0].Rule)
+	if pr.Rules[0].Rule != "rule.json" {
+		t.Errorf("expected rule to remain unchanged due to unsupported extension, got %q", pr.Rules[0].Rule)
 	}
 }
 
@@ -728,12 +724,12 @@ func TestResolveRuleFiles_TooLarge(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "large.md"), []byte(largeContent), 0644)
 	pr := &ProjectRule{
 		Rules: []ProjectRuleEntry{
-			{Path: "*.go", RuleFile: "large.md"},
+			{Path: "*.go", Rule: "large.md", UseFilePath: true},
 		},
 	}
 	resolveRuleFiles(pr, dir)
-	if pr.Rules[0].Rule != "" {
-		t.Errorf("expected empty rule due to large file, got %q", pr.Rules[0].Rule)
+	if pr.Rules[0].Rule != "large.md" {
+		t.Errorf("expected rule to remain unchanged due to large file, got %q", pr.Rules[0].Rule)
 	}
 }
 
@@ -741,11 +737,11 @@ func TestResolveRuleFiles_MissingFile(t *testing.T) {
 	dir := t.TempDir()
 	pr := &ProjectRule{
 		Rules: []ProjectRuleEntry{
-			{Path: "*.go", Rule: "Keep me", RuleFile: "missing.md"},
+			{Path: "*.go", Rule: "missing.md", UseFilePath: true},
 		},
 	}
 	resolveRuleFiles(pr, dir)
-	if pr.Rules[0].Rule != "Keep me" {
+	if pr.Rules[0].Rule != "missing.md" {
 		t.Errorf("expected original rule to be kept, got %q", pr.Rules[0].Rule)
 	}
 }
