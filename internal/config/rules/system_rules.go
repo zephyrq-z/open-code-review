@@ -176,16 +176,16 @@ func expandBraces(s string) []string {
 
 // ProjectRuleEntry is a single entry in .opencodereview/rule.json.
 type ProjectRuleEntry struct {
-	Path        string `json:"path"`
-	Rule        string `json:"rule"`
-	UseFilePath bool   `json:"use_file_path,omitempty"`
+	Path string `json:"path"`
+	Rule string `json:"rule"`
 }
 
 // ProjectRule holds rules loaded from <repoDir>/.opencodereview/rule.json.
 type ProjectRule struct {
-	Rules   []ProjectRuleEntry `json:"rules"`
-	Include []string           `json:"include,omitempty"`
-	Exclude []string           `json:"exclude,omitempty"`
+	UseFilePath bool                 `json:"use_file_path,omitempty"`
+	Rules       []ProjectRuleEntry   `json:"rules"`
+	Include     []string             `json:"include,omitempty"`
+	Exclude     []string             `json:"exclude,omitempty"`
 }
 
 // FileFilter holds the merged user-configured include/exclude glob patterns
@@ -309,10 +309,20 @@ func resolveRuleFiles(pr *ProjectRule, baseDir string) {
 		return
 	}
 
+	// Early exit if UseFilePath is not enabled at the top level
+	if !pr.UseFilePath {
+		return
+	}
+
 	absBase, err := filepath.Abs(baseDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[WARN] Failed to get absolute path for base dir %s: %v\n", baseDir, err)
 		return
+	}
+	// Resolve symlinks on base directory for consistent prefix matching
+	// (e.g. on macOS /var -> /private/var)
+	if resolved, err := filepath.EvalSymlinks(absBase); err == nil {
+		absBase = resolved
 	}
 	// Ensure base directory path ends with separator for proper prefix matching
 	if !strings.HasSuffix(absBase, string(filepath.Separator)) {
@@ -321,7 +331,10 @@ func resolveRuleFiles(pr *ProjectRule, baseDir string) {
 
 	for i := range pr.Rules {
 		entry := &pr.Rules[i]
-		if !entry.UseFilePath || entry.Rule == "" {
+		
+		// Warn if Rule path is empty
+		if entry.Rule == "" {
+			fmt.Fprintf(os.Stderr, "[WARN] Rule entry for path %q has use_file_path=true but empty rule path, skipping\n", entry.Path)
 			continue
 		}
 
@@ -332,20 +345,7 @@ func resolveRuleFiles(pr *ProjectRule, baseDir string) {
 			continue
 		}
 
-		// Security check: prevent directory traversal
-		if !strings.HasPrefix(absFile+string(filepath.Separator), absBase) && absFile != strings.TrimSuffix(absBase, string(filepath.Separator)) {
-			fmt.Fprintf(os.Stderr, "[WARN] Security violation: rule file %s is outside the base directory %s\n", filePath, baseDir)
-			continue
-		}
-
-		// Extension check
-		ext := strings.ToLower(filepath.Ext(absFile))
-		if ext != ".md" && ext != ".txt" {
-			fmt.Fprintf(os.Stderr, "[WARN] Unsupported rule file extension %s for %s (only .md and .txt are allowed)\n", ext, filePath)
-			continue
-		}
-
-		// File size check
+		// File size check and existence check (before symlink resolution)
 		info, err := os.Stat(absFile)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -357,6 +357,27 @@ func resolveRuleFiles(pr *ProjectRule, baseDir string) {
 		}
 		if info.Size() > 100*1024 {
 			fmt.Fprintf(os.Stderr, "[WARN] Rule file %s is too large (%d bytes, max 100KB)\n", absFile, info.Size())
+			continue
+		}
+
+		// Security: resolve symlinks to prevent directory traversal via symlink
+		resolvedFile, err := filepath.EvalSymlinks(absFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[WARN] Failed to resolve symlinks for rule file %s: %v\n", filePath, err)
+			continue
+		}
+		absFile = resolvedFile
+
+		// Security check: prevent directory traversal
+		if !strings.HasPrefix(absFile+string(filepath.Separator), absBase) && absFile != strings.TrimSuffix(absBase, string(filepath.Separator)) {
+			fmt.Fprintf(os.Stderr, "[WARN] Security violation: rule file %s is outside the base directory %s\n", filePath, baseDir)
+			continue
+		}
+
+		// Extension check
+		ext := strings.ToLower(filepath.Ext(absFile))
+		if ext != ".md" && ext != ".txt" {
+			fmt.Fprintf(os.Stderr, "[WARN] Unsupported rule file extension %s for %s (only .md and .txt are allowed)\n", ext, filePath)
 			continue
 		}
 

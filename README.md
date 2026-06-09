@@ -346,6 +346,7 @@ Layers 1–3 share the same JSON format:
 
 ```json
 {
+  "use_file_path": true,
   "rules": [
     {
       "path": "force-api/**/*.java",
@@ -353,26 +354,21 @@ Layers 1–3 share the same JSON format:
     },
     {
       "path": "**/*mapper*.xml",
-      "rule": "docs/sql-rules.md",
-      "use_file_path": true
+      "rule": "docs/sql-rules.md"
     },
     {
       "path": "web/**/*.ts",
-      "rule": "Focus on XSS vulnerabilities.",
-      "rule": "docs/frontend-rules.md",
-      "use_file_path": true
+      "rule": "docs/frontend-rules.md"
     }
   ]
 }
 ```
 
-- `path` supports `**` recursive matching and `{java,kt}` brace expansion.
-- `rule` is used for inline rule text.
-- When `use_file_path` is set to `true`, the `rule` field is treated as a relative path to an external `.md` or `.txt` file containing the rule content. The path is relative to the directory containing the current `rule.json`.
-- The content of the external file will overwrite the `rule` field.
-- For security reasons, the referenced file cannot be outside its base directory (no `../` path traversal), and the file size must not exceed 100KB.
+- `use_file_path` is a top-level flag. When set to `true`, all `rule` fields are treated as relative paths to external `.md` or `.txt` files containing the rule content. The paths are relative to the directory containing the current `rule.json`.
+- The content of external files will overwrite the `rule` field values.
+- For security reasons, referenced files cannot be outside their base directory (no `../` path traversal), and file sizes must not exceed 100KB.
 - Within each layer, rules are evaluated in declaration order — the first match wins.
-- Missing rule files are skipped silently.
+- Missing rule files will generate a warning and be skipped.
 
 ### Path Filtering
 

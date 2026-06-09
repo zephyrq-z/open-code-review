@@ -680,8 +680,9 @@ func TestResolveRuleFiles_Basic(t *testing.T) {
 	}
 
 	pr := &ProjectRule{
+		UseFilePath: true,
 		Rules: []ProjectRuleEntry{
-			{Path: "*.go", Rule: "rule.md", UseFilePath: true},
+			{Path: "*.go", Rule: "rule.md"},
 		},
 	}
 	resolveRuleFiles(pr, dir)
@@ -694,8 +695,9 @@ func TestResolveRuleFiles_Basic(t *testing.T) {
 func TestResolveRuleFiles_Security(t *testing.T) {
 	dir := t.TempDir()
 	pr := &ProjectRule{
+		UseFilePath: true,
 		Rules: []ProjectRuleEntry{
-			{Path: "*.go", Rule: "../outside.md", UseFilePath: true},
+			{Path: "*.go", Rule: "../outside.md"},
 		},
 	}
 	resolveRuleFiles(pr, dir)
@@ -708,8 +710,9 @@ func TestResolveRuleFiles_UnsupportedExtension(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "rule.json"), []byte("{}"), 0644)
 	pr := &ProjectRule{
+		UseFilePath: true,
 		Rules: []ProjectRuleEntry{
-			{Path: "*.go", Rule: "rule.json", UseFilePath: true},
+			{Path: "*.go", Rule: "rule.json"},
 		},
 	}
 	resolveRuleFiles(pr, dir)
@@ -723,8 +726,9 @@ func TestResolveRuleFiles_TooLarge(t *testing.T) {
 	largeContent := strings.Repeat("a", 101*1024)
 	os.WriteFile(filepath.Join(dir, "large.md"), []byte(largeContent), 0644)
 	pr := &ProjectRule{
+		UseFilePath: true,
 		Rules: []ProjectRuleEntry{
-			{Path: "*.go", Rule: "large.md", UseFilePath: true},
+			{Path: "*.go", Rule: "large.md"},
 		},
 	}
 	resolveRuleFiles(pr, dir)
@@ -736,8 +740,9 @@ func TestResolveRuleFiles_TooLarge(t *testing.T) {
 func TestResolveRuleFiles_MissingFile(t *testing.T) {
 	dir := t.TempDir()
 	pr := &ProjectRule{
+		UseFilePath: true,
 		Rules: []ProjectRuleEntry{
-			{Path: "*.go", Rule: "missing.md", UseFilePath: true},
+			{Path: "*.go", Rule: "missing.md"},
 		},
 	}
 	resolveRuleFiles(pr, dir)
