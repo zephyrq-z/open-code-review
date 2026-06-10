@@ -346,12 +346,25 @@ Layers 1–3 share the same JSON format:
 
 ```json
 {
-  "use_file_path": true,
   "rules": [
     {
       "path": "force-api/**/*.java",
       "rule": "All new methods must validate required parameters for null values"
     },
+    {
+      "path": "**/*mapper*.xml",
+      "rule": "Check SQL for injection risks, parameter errors, and missing closing tags"
+    }
+  ]
+}
+```
+
+When complex rules are better kept in separate files, enable the top-level `use_file_path` flag:
+
+```json
+{
+  "use_file_path": true,
+  "rules": [
     {
       "path": "**/*mapper*.xml",
       "rule": "docs/sql-rules.md"
@@ -364,7 +377,8 @@ Layers 1–3 share the same JSON format:
 }
 ```
 
-- `use_file_path` is a top-level flag. When set to `true`, all `rule` fields are treated as relative paths to external `.md` or `.txt` files containing the rule content. The paths are relative to the directory containing the current `rule.json`.
+- `use_file_path` is a top-level toggle. When set to `true`, all `rule` fields are treated as relative paths to external `.md` or `.txt` files whose content is the actual rule text. Paths are relative to the directory containing the current `rule.json`.
+- When set to `false` or omitted, `rule` fields are used as inline string rules (as in the first example above).
 - The content of external files will overwrite the `rule` field values.
 - For security reasons, referenced files cannot be outside their base directory (no `../` path traversal), and file sizes must not exceed 100KB.
 - Within each layer, rules are evaluated in declaration order — the first match wins.
