@@ -173,6 +173,21 @@ var registry = []Provider{
 			"MiniMax-M2.5-highspeed",
 		},
 	},
+	{
+		Name:        "baidu-qianfan",
+		DisplayName: "Baidu Qianfan API",
+		Protocol:    "openai",
+		BaseURL:     "https://qianfan.baidubce.com/v2",
+		EnvVar:      "QIANFAN_API_KEY",
+		Models: []string{
+			"ernie-5.1",
+			"ernie-5.0",
+			"ernie-x1.1",
+			"ernie-x1-turbo-32k-preview",
+			"deepseek-v4-pro",
+			"deepseek-v4-flash",
+		},
+	},
 }
 
 var registryMap map[string]Provider
