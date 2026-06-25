@@ -1,3 +1,4 @@
+import { t } from '../../shared/i18n';
 import { spawn } from 'child_process';
 import { CliResult, CliRunOptions, EnvCheckResult, LogLine } from '../../shared/types';
 import { buildReviewArgs, extractCliError, parseCliResult, parseLogLine } from './cliParse';
@@ -90,7 +91,7 @@ export class CliService {
       proc.on('error', (err) => { onLog({ text: String(err), level: 'error' }); resolve(false); });
       proc.on('close', (code) => {
         emitLines('', 'info', true);
-        onLog({ text: code === 0 ? '✓ 安装完成' : `✗ 安装失败 (exit ${code})`, level: code === 0 ? 'info' : 'error' });
+        onLog({ text: code === 0 ? t('en', 'ext.cli.installOk') : `${t('en', 'ext.cli.installFail')}${code})`, level: code === 0 ? 'info' : 'error' });
         if (code === 0) this.invalidateEnvironmentCache();
         resolve(code === 0);
       });

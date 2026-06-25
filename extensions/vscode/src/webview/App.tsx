@@ -1,3 +1,4 @@
+import { I18nContext, resolveLocale } from './I18nProvider';
 import { useEffect, useReducer } from 'preact/hooks';
 import { reducer, initialState } from './store';
 import { bridge } from './bridge';
@@ -38,6 +39,7 @@ export function App() {
   };
 
   return (
+    <I18nContext.Provider value={resolveLocale(state.locale)}>
     <div class="ocr-root">
       <div class="action-region">
         <IdleView gitState={state.gitState} modeFiles={state.modeFiles} filesLoading={state.filesLoading}
@@ -65,5 +67,6 @@ export function App() {
         )}
       </div>
     </div>
+    </I18nContext.Provider>
   );
 }

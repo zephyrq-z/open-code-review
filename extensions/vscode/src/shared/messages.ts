@@ -28,7 +28,7 @@ export type WebviewToHost =
   | { type: 'commentAction'; index: number; action: 'apply' | 'discard' | 'falsePositive' };
 
 export type HostToWebview =
-  | { type: 'init'; config: OcrConfig | null; gitState: GitState }
+  | { type: 'init'; config: OcrConfig | null; gitState: GitState; locale: string }
   | { type: 'gitState'; gitState: GitState }
   | { type: 'modeFiles'; mode: ReviewMode; files: FileChange[] }
   | { type: 'logLine'; line: LogLine }
@@ -38,7 +38,7 @@ export type HostToWebview =
   | { type: 'commentSync'; comments: CommentSyncState[] };
 
 export type ConfigPanelHostToWebview =
-  | { type: 'configPanelInit'; config: OcrConfig | null; focus?: ConfigPanelFocus | null; env?: EnvCheckResult | null; skipEnvCheck?: boolean }
+  | { type: 'configPanelInit'; config: OcrConfig | null; focus?: ConfigPanelFocus | null; env?: EnvCheckResult | null; skipEnvCheck?: boolean; locale: string }
   | { type: 'configPanelFocus'; focus?: ConfigPanelFocus | null }
   | { type: 'config'; config: OcrConfig | null }
   | { type: 'connectionResult'; ok: boolean; message?: string }
