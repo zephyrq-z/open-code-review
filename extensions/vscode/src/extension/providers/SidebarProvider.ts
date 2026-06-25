@@ -1,4 +1,4 @@
-import { resolveLocale } from '../../shared/i18n';
+import { resolveLocale, toHtmlLang } from '../../shared/i18n';
 import * as vscode from 'vscode';
 import { ConfigPanelFocus } from '../../shared/configUtils';
 import { HostToWebview, WebviewToHost } from '../../shared/messages';
@@ -111,7 +111,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'out', 'webview.js'));
     const nonce = String(Date.now());
     const resolved = resolveLocale(vscode.env.language);
-    const lang = resolved === 'zh-cn' ? 'zh-CN' : resolved;
+    const lang = toHtmlLang(resolved);
     return `<!DOCTYPE html>
 <html lang="${lang}"><head>
 <meta charset="UTF-8">

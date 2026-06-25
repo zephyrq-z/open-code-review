@@ -1,7 +1,7 @@
 import { ConfigPanelFocus, isConfigReady } from '../shared/configUtils';
 import { ConfigPanelHostToWebview, HostToWebview } from '../shared/messages';
 import { EnvCheckResult, OcrConfig, LogLine } from '../shared/types';
-import { resolveLocale, t } from '../shared/i18n';
+import { resolveLocale, t, SupportedLocale } from '../shared/i18n';
 
 export type CliStatus = 'unknown' | 'checking' | 'installed' | 'missing';
 export type ConnTest = { status: 'idle' | 'testing' | 'ok' | 'fail'; message?: string };
@@ -17,7 +17,7 @@ export interface ConfigPanelState {
   connTest: ConnTest;
   copyHint: string;
   errorHint: string;
-  locale: string;
+  locale: SupportedLocale;
 }
 
 export const configPanelInitialState: ConfigPanelState = {

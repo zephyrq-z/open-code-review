@@ -1,4 +1,4 @@
-import { resolveLocale, t } from '../../shared/i18n';
+import { resolveLocale, t, toHtmlLang } from '../../shared/i18n';
 import * as vscode from 'vscode';
 import { ConfigPanelFocus, isConfigReady } from '../../shared/configUtils';
 import { ConfigPanelHostToWebview, WebviewToHost } from '../../shared/messages';
@@ -149,7 +149,7 @@ export class ConfigPanelProvider implements vscode.Disposable {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'out', 'configPanel.js'));
     const nonce = String(Date.now());
     const resolved = resolveLocale(vscode.env.language);
-    const lang = resolved === 'zh-cn' ? 'zh-CN' : resolved;
+    const lang = toHtmlLang(resolved);
     return `<!DOCTYPE html>
 <html lang="${lang}"><head>
 <meta charset="UTF-8">

@@ -196,7 +196,12 @@ function ActiveProviderBanner({ config }: { config: OcrConfig | null }) {
       </div>
     );
   }
-  const kindLabel = active.kind === 'official' ? t('view.config.officialLabel') : active.kind === 'custom' ? t('view.config.customLabel') : t('view.config.legacyLabel');
+  const kindLabelMap: Record<string, string> = {
+    official: t('view.config.officialLabel'),
+    custom: t('view.config.customLabel'),
+    legacy: t('view.config.legacyLabel'),
+  };
+  const kindLabel = kindLabelMap[active.kind] ?? t('view.config.legacyLabel');
   const displayName = active.kind === 'legacy' ? t('ext.config.legacyDisplayName') : active.displayName;
   return (
     <div class="active-provider-banner">
@@ -551,7 +556,7 @@ function ConnActions({ wide, connTest, canSave, onBack, onTest, onSave }: {
         <div class={`conn-result ${connTest.status}`}>
           {connTest.status === 'testing' && t('view.config.testing')}
           {connTest.status === 'ok' && t('view.config.testOk')}
-          {connTest.status === 'fail' && `${t('view.config.testFail')}${connTest.message ? '：' + connTest.message : ''}`}
+          {connTest.status === 'fail' && t(connTest.message ? 'view.config.testFailDetail' : 'view.config.testFail').replace('{message}', connTest.message ?? '')}
         </div>
       )}
       <div class="form-actions">

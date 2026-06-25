@@ -216,6 +216,7 @@ function formatRelative(date?: Date): string {
   const diff = Date.now() - date.getTime();
   const h = Math.floor(diff / 3.6e6);
   if (h < 1) return t(locale, 'ext.git.justNow');
+  if (h === 1) return t(locale, 'ext.git.hourAgo');
   if (h < 24) return t(locale, 'ext.git.hoursAgo').replace('{h}', String(h));
   const d = Math.floor(h / 24);
   if (d === 1) return t(locale, 'ext.git.yesterday');

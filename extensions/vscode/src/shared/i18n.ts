@@ -73,6 +73,7 @@ const messages: Record<SupportedLocale, Record<string, string>> = {
     'view.config.testOk': '✓ Connected',
     'view.config.testFail': '✗ Connection failed',
     'view.config.previous': 'Previous',
+    'view.config.testFailDetail': '✗ Connection failed: {message}',
     'view.config.test': 'Test Connection',
     'view.config.save': 'Save',
     'view.config.continueProvider': 'Continue to Provider Config',
@@ -156,6 +157,7 @@ const messages: Record<SupportedLocale, Record<string, string>> = {
     'ext.deleteProviderConfirmBtn': 'Delete',
     'ext.git.justNow': 'just now',
     'ext.git.hoursAgo': '{h} hours ago',
+    'ext.git.hourAgo': '1 hour ago',
     'ext.git.yesterday': 'yesterday',
     'ext.git.daysAgo': '{d} days ago',
     'ext.git.workspaceVsHead': 'Workspace ↔ HEAD',
@@ -220,6 +222,7 @@ const messages: Record<SupportedLocale, Record<string, string>> = {
     'view.config.testing': '正在测试连接…',
     'view.config.testOk': '✓ 连接成功',
     'view.config.testFail': '✗ 连接失败',
+    'view.config.testFailDetail': '✗ 连接失败：{message}',
     'view.config.previous': '上一步',
     'view.config.test': '测试连接',
     'view.config.save': '保存',
@@ -296,6 +299,7 @@ const messages: Record<SupportedLocale, Record<string, string>> = {
     'ext.deleteProviderConfirmBtn': '删除',
     'ext.git.justNow': '刚刚',
     'ext.git.hoursAgo': '{h} 小时前',
+    'ext.git.hourAgo': '1 小时前',
     'ext.git.yesterday': '昨天',
     'ext.git.daysAgo': '{d} 天前',
     'ext.git.workspaceVsHead': '工作区 ↔ HEAD',
@@ -317,4 +321,12 @@ export function t(locale: SupportedLocale, key: string): string {
 export function resolveLocale(raw: string): SupportedLocale {
   if (raw.toLowerCase() === 'zh-cn') return 'zh-cn';
   return 'en';
+}
+
+/**
+ * Convert a {@link SupportedLocale} to the BCP 47 HTML `lang` attribute value.
+ * `zh-cn` → `zh-CN`, others stay as-is.
+ */
+export function toHtmlLang(locale: SupportedLocale): string {
+  return locale === 'zh-cn' ? 'zh-CN' : locale;
 }

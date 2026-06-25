@@ -1,4 +1,5 @@
 import { CliResult, CommentStatus, FileChange, GitState, LogLine, OcrConfig, ReviewMode, ReviewState } from '../shared/types';
+import { SupportedLocale } from '../shared/i18n';
 import { HostToWebview } from '../shared/messages';
 
 export type AppView = 'idle' | 'running' | 'done' | 'empty' | 'cancelled' | 'failed';
@@ -13,7 +14,7 @@ export interface AppState {
   session: { state: ReviewState; result: CliResult | null; error?: string };
   commentStatus: Record<number, CommentStatus>;
   reviewMode: ReviewMode;
-  locale: string;
+  locale: SupportedLocale;
 }
 
 export const initialState: AppState = {
