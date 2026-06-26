@@ -554,8 +554,48 @@ Layers 1–3 share the same JSON format:
 
 - `path` supports `**` recursive matching and `{java,kt}` brace expansion.
 - `merge_system_rule` is optional. When `true`, the matched built-in system rule is merged with this user rule; otherwise the user rule replaces the system rule.
+
+
 - Within each layer, rules are evaluated in declaration order — the first match wins.
-- If a rule file does not exist, it is silently skipped.
+
+**The `rule` field supports both inline content and file paths.** The system auto-detects which one you mean:
+
+1. If the value contains newlines → **inline content** (multi-line rules are never file paths).
+2. If the value ends with `.md` / `.txt` / `.markdown` → **file path**.
+   - Absolute paths (starting with `/`) are used directly.
+   - Relative paths are resolved first against the project root; if not found, they are tried as-is (absolute path). If still not found, a `[WARN]` is emitted.
+   - The file must pass validation: whitelisted extension, ≤ 100 KB, and resolved symlink target must also be a whitelisted extension.
+3. Otherwise → **inline content**.
+
+```json
+{
+  "rules": [
+    {
+      "path": "**/*mapper*.xml",
+      "rule": "docs/sql-rules.md"
+    },
+    {
+      "path": "**/*.java",
+      "rule": "Always check for null safety and resource leaks"
+    },
+    {
+      "path": "**/*.go",
+      "rule": "shared/go-concurrency.md"
+    },
+    {
+      "path": "**/*.py",
+      "rule": "/Users/me/team-rules/python.md"
+    }
+  ]
+}
+```
+
+- `docs/sql-rules.md` — relative path, resolved from `<project>/docs/sql-rules.md` first, then tried as absolute path.
+- `Always check for null safety…` — inline string, used directly.
+- `shared/go-concurrency.md` — relative path, same two-step lookup.
+- `/Users/me/team-rules/python.md` — absolute path, used directly.
+
+> Absolute paths can access files outside the project directory — this is intentional. `rule.json` is authored by project maintainers, i.e. trusted input. Teams can store shared rules at a common path (e.g. `/opt/company-rules/`) instead of copying them into every project.
 
 ### Path Filtering
 

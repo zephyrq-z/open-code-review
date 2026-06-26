@@ -327,6 +327,7 @@ func loadGlobalRule() (*ProjectRule, error) {
 	if err := json.Unmarshal(data, &pr); err != nil {
 		return nil, fmt.Errorf("unmarshal global rule: %w", err)
 	}
+	resolveRuleEntries(pr.Rules, filepath.Dir(path))
 	return &pr, nil
 }
 
@@ -339,6 +340,7 @@ func loadRuleFile(path string) (*ProjectRule, error) {
 	if err := json.Unmarshal(data, &pr); err != nil {
 		return nil, fmt.Errorf("unmarshal rule file %s: %w", path, err)
 	}
+	resolveRuleEntries(pr.Rules, filepath.Dir(path))
 	return &pr, nil
 }
 
@@ -355,6 +357,7 @@ func loadProjectRule(repoDir string) (*ProjectRule, error) {
 	if err := json.Unmarshal(data, &pr); err != nil {
 		return nil, fmt.Errorf("unmarshal project rule: %w", err)
 	}
+	resolveRuleEntries(pr.Rules, repoDir)
 	return &pr, nil
 }
 
@@ -437,4 +440,112 @@ func matchProjectRuleEntry(pr *ProjectRule, path string) *ProjectRuleEntry {
 		}
 	}
 	return nil
+}
+
+// looksLikeFilePath returns true when s is likely a file path (not inline content).
+// Heuristic: multi-line text is always inline; single-line text without spaces
+// ending in .md/.txt/.markdown is treated as a file path. Values containing spaces
+// (e.g. "Follow rules from team.md") are treated as inline to avoid false positives.
+func looksLikeFilePath(s string) bool {
+	if strings.Contains(s, "\n") {
+		return false
+	}
+	if strings.Contains(s, " ") {
+		return false
+	}
+	lower := strings.ToLower(s)
+	return strings.HasSuffix(lower, ".md") || strings.HasSuffix(lower, ".txt") || strings.HasSuffix(lower, ".markdown")
+}
+
+// resolveRuleEntries scans each entry's Rule field. When the value looks like a file
+// path, it reads the file content and replaces the Rule. Relative paths are resolved
+// in two steps: first against repoDir, then as absolute paths. Absolute paths are
+// used directly. Multi-line and short inline rules are left unchanged. Any error
+// produces a [WARN] and the original Rule value is kept.
+func resolveRuleEntries(entries []ProjectRuleEntry, repoDir string) {
+	for i := range entries {
+		e := &entries[i]
+		if strings.TrimSpace(e.Rule) == "" || !looksLikeFilePath(e.Rule) {
+			continue
+		}
+		if content := tryReadRuleFile(e.Rule, repoDir); content != nil {
+			e.Rule = *content
+		}
+	}
+}
+
+// tryReadRuleFile attempts to read a rule file from the given path. For relative
+// paths it searches repoDir first, then tries the path as-is (absolute). Returns
+// nil when the file cannot be read safely or does not exist.
+func tryReadRuleFile(rule string, repoDir string) *string {
+	if repoDir == "" {
+		fmt.Fprintf(os.Stderr, "[WARN] repoDir is empty, treating rule as absolute path: %s\n", rule)
+	}
+	if filepath.IsAbs(rule) || repoDir == "" {
+		content, err := readRuleFileSafe(rule)
+		if err == nil {
+			return &content
+		}
+		if os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "[WARN] rule file not found: %s\n", rule)
+		} else {
+			fmt.Fprintf(os.Stderr, "[WARN] cannot read rule file %s: %v\n", rule, err)
+		}
+		return nil
+	}
+
+	// Relative path: try project dir first, then as-is (absolute).
+	projectPath := filepath.Join(repoDir, rule)
+	content, err := readRuleFileSafe(projectPath)
+	if err == nil {
+		return &content
+	}
+	if !os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "[WARN] cannot read rule file %s: %v\n", projectPath, err)
+		return nil
+	}
+
+	// Not found in project dir — try as absolute path.
+	content, err = readRuleFileSafe(rule)
+	if err == nil {
+		return &content
+	}
+	if os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "[WARN] rule file not found: %s (tried project dir, then as absolute path)\n", rule)
+	} else {
+		fmt.Fprintf(os.Stderr, "[WARN] cannot read rule file %s: %v\n", rule, err)
+	}
+	return nil
+}
+
+// readRuleFileSafe reads and validates a rule file. It enforces extension whitelist
+// (.md / .txt / .markdown), a 512 KB size cap, and resolves symlinks before checking
+// the path. Symlinks are resolved first, then size is checked via Stat before reading.
+// Returns the trimmed content on success.
+func readRuleFileSafe(path string) (string, error) {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", err
+	}
+
+	ext := strings.ToLower(filepath.Ext(resolved))
+	if ext != ".md" && ext != ".txt" && ext != ".markdown" {
+		return "", fmt.Errorf("unsupported extension %q, only .md/.txt/.markdown allowed", ext)
+	}
+
+	const maxSize = 512 * 1024
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return "", err
+	}
+	if info.Size() > maxSize {
+		return "", fmt.Errorf("file too large (%d bytes, max %d)", info.Size(), maxSize)
+	}
+
+	content, err := os.ReadFile(resolved)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimRight(string(content), "\n"), nil
 }
