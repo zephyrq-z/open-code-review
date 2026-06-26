@@ -1,0 +1,1 @@
+{"rules": [{"path": "**/*.ts", "rule": "shared.md"}]}

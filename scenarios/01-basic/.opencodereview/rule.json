@@ -1,0 +1,1 @@
+{"rules": [{"path": "**/*.py", "rule": "../../rules/python.md"}, {"path": "**/*.go", "rule": "Check for nil pointers"}]}

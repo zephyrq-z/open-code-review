@@ -1,0 +1,1 @@
+{"rules": [{"path": "**/*.go", "rule": "rules.json"}]}

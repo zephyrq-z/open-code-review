@@ -1,0 +1,1 @@
+{"rules": [{"path": "**/*.java", "rule": "All public methods must have Javadoc"}]}
