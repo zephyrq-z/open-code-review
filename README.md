@@ -560,7 +560,7 @@ Layers 1–3 share the same JSON format:
 **The `rule` field supports both inline content and file paths.** The system auto-detects which one you mean:
 
 1. If the value contains newlines → **inline content** (multi-line rules are never file paths).
-2. If the value ends with `.md` / `.txt` / `.markdown` → **file path**.
+2. If the value is a single line, contains no spaces, and ends with `.md` / `.txt` / `.markdown` → **file path**.
    - Absolute paths (starting with `/`) are used directly.
    - Relative paths are resolved against the project root. If not found, a `[WARN]` is emitted and the rule is cleared (no fallback to inline).
    - The file must pass validation: whitelisted extension, ≤ 512 KB, and resolved symlink target must also be a whitelisted extension. If validation fails, the rule is cleared.
