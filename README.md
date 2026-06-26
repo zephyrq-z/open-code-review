@@ -562,8 +562,8 @@ Layers 1–3 share the same JSON format:
 1. If the value contains newlines → **inline content** (multi-line rules are never file paths).
 2. If the value ends with `.md` / `.txt` / `.markdown` → **file path**.
    - Absolute paths (starting with `/`) are used directly.
-   - Relative paths are resolved first against the project root; if not found, they are tried as-is (absolute path). If still not found, a `[WARN]` is emitted.
-   - The file must pass validation: whitelisted extension, ≤ 100 KB, and resolved symlink target must also be a whitelisted extension.
+   - Relative paths are resolved against the project root. If not found, a `[WARN]` is emitted and the rule is cleared (no fallback to inline).
+   - The file must pass validation: whitelisted extension, ≤ 512 KB, and resolved symlink target must also be a whitelisted extension. If validation fails, the rule is cleared.
 3. Otherwise → **inline content**.
 
 ```json
@@ -589,9 +589,9 @@ Layers 1–3 share the same JSON format:
 }
 ```
 
-- `docs/sql-rules.md` — relative path, resolved from `<project>/docs/sql-rules.md` first, then tried as absolute path.
+- `docs/sql-rules.md` — relative path, resolved from `<project>/docs/sql-rules.md`.
 - `Always check for null safety…` — inline string, used directly.
-- `shared/go-concurrency.md` — relative path, same two-step lookup.
+- `shared/go-concurrency.md` — relative path, same resolution.
 - `/Users/me/team-rules/python.md` — absolute path, used directly.
 
 > Absolute paths can access files outside the project directory — this is intentional. `rule.json` is authored by project maintainers, i.e. trusted input. Teams can store shared rules at a common path (e.g. `/opt/company-rules/`) instead of copying them into every project.

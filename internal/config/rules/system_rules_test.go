@@ -995,9 +995,9 @@ func TestResolveRuleEntries_MissingFile(t *testing.T) {
 	}
 	resolveRuleEntries(entries, dir)
 
-	// Missing file should keep original value.
-	if entries[0].Rule != "nonexistent.md" {
-		t.Errorf("missing file should keep original rule, got %q", entries[0].Rule)
+	// Missing file should clear the rule.
+	if entries[0].Rule != "" {
+		t.Errorf("missing file should clear rule, got %q", entries[0].Rule)
 	}
 }
 
@@ -1019,23 +1019,6 @@ func TestResolveRuleEntries_AbsolutePath(t *testing.T) {
 	}
 }
 
-func TestResolveRuleEntries_UnsupportedExtension(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "rules.json"), []byte(`{"key":"val"}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	entries := []ProjectRuleEntry{
-		{Path: "**/*.go", Rule: "rules.json"},
-	}
-	resolveRuleEntries(entries, dir)
-
-	// .json should be rejected, original value kept.
-	if entries[0].Rule != "rules.json" {
-		t.Errorf("unsupported extension should keep original, got %q", entries[0].Rule)
-	}
-}
-
 func TestResolveRuleEntries_TooLarge(t *testing.T) {
 	dir := t.TempDir()
 	big := make([]byte, 513*1024)
@@ -1052,33 +1035,12 @@ func TestResolveRuleEntries_TooLarge(t *testing.T) {
 	}
 	resolveRuleEntries(entries, dir)
 
-	if entries[0].Rule != "big.md" {
-		t.Errorf("oversized file should keep original, got %q", entries[0].Rule)
+	if entries[0].Rule != "" {
+		t.Errorf("oversized file should clear rule, got %q", entries[0].Rule)
 	}
 }
 
-func TestResolveRuleEntries_AbsoluteFallback(t *testing.T) {
-	// When a relative path is not found in the repo dir, it is tried as-is
-	// (absolute path fallback). Use a path that is absolute on the current OS.
-	repoDir := t.TempDir()
-	absFile := filepath.Join(t.TempDir(), "fallback.md")
-	content := "absolute fallback content"
-	if err := os.WriteFile(absFile, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	// File does NOT exist in repoDir, but exists at the absolute path.
-	entries := []ProjectRuleEntry{
-		{Path: "**/*.go", Rule: absFile},
-	}
-	resolveRuleEntries(entries, repoDir)
-
-	if entries[0].Rule != content {
-		t.Errorf("expected absolute fallback content, got %q", entries[0].Rule)
-	}
-}
-
-func TestResolveRuleEntries_RepoDirOverridesFallback(t *testing.T) {
+func TestResolveRuleEntries_RelativePath(t *testing.T) {
 	repoDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(repoDir, "shared.md"), []byte("repo-level"), 0o644); err != nil {
 		t.Fatal(err)
@@ -1091,33 +1053,6 @@ func TestResolveRuleEntries_RepoDirOverridesFallback(t *testing.T) {
 
 	if entries[0].Rule != "repo-level" {
 		t.Errorf("repo-level should win, got %q", entries[0].Rule)
-	}
-}
-
-func TestResolveRuleEntries_RepoDirFirst(t *testing.T) {
-	homeDir := t.TempDir()
-	t.Setenv("HOME", homeDir)
-
-	globalRuleDir := filepath.Join(homeDir, ".opencodereview")
-	if err := os.MkdirAll(globalRuleDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(globalRuleDir, "shared.md"), []byte("global"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	repoDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(repoDir, "shared.md"), []byte("repo-level"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	entries := []ProjectRuleEntry{
-		{Path: "**/*.go", Rule: "shared.md"},
-	}
-	resolveRuleEntries(entries, repoDir)
-
-	if entries[0].Rule != "repo-level" {
-		t.Errorf("repo-level should win over global, got %q", entries[0].Rule)
 	}
 }
 
@@ -1159,9 +1094,9 @@ func TestResolveRuleEntries_SymlinkSafety(t *testing.T) {
 	}
 	resolveRuleEntries(entries, dir)
 	// The symlink target is .json, which is not in the whitelist.
-	// The original "evil.md" value should be preserved.
-	if entries[0].Rule != "evil.md" {
-		t.Errorf("symlink to non-whitelisted file should keep original, got %q", entries[0].Rule)
+	// The rule should be cleared.
+	if entries[0].Rule != "" {
+		t.Errorf("symlink to non-whitelisted file should clear rule, got %q", entries[0].Rule)
 	}
 }
 

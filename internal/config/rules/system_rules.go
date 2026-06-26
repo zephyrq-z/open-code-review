@@ -327,7 +327,6 @@ func loadGlobalRule() (*ProjectRule, error) {
 	if err := json.Unmarshal(data, &pr); err != nil {
 		return nil, fmt.Errorf("unmarshal global rule: %w", err)
 	}
-	resolveRuleEntries(pr.Rules, filepath.Dir(path))
 	return &pr, nil
 }
 
@@ -458,10 +457,10 @@ func looksLikeFilePath(s string) bool {
 }
 
 // resolveRuleEntries scans each entry's Rule field. When the value looks like a file
-// path, it reads the file content and replaces the Rule. Relative paths are resolved
-// in two steps: first against repoDir, then as absolute paths. Absolute paths are
-// used directly. Multi-line and short inline rules are left unchanged. Any error
-// produces a [WARN] and the original Rule value is kept.
+// path, it reads the file content and replaces the Rule. Absolute paths are used
+// directly; relative paths are resolved against repoDir only. Multi-line and short
+// inline rules are left unchanged. If the file cannot be read, the Rule is cleared
+// (set to empty) and a [WARN] is emitted.
 func resolveRuleEntries(entries []ProjectRuleEntry, repoDir string) {
 	for i := range entries {
 		e := &entries[i]
@@ -470,13 +469,15 @@ func resolveRuleEntries(entries []ProjectRuleEntry, repoDir string) {
 		}
 		if content := tryReadRuleFile(e.Rule, repoDir); content != nil {
 			e.Rule = *content
+		} else {
+			e.Rule = ""
 		}
 	}
 }
 
-// tryReadRuleFile attempts to read a rule file from the given path. For relative
-// paths it searches repoDir first, then tries the path as-is (absolute). Returns
-// nil when the file cannot be read safely or does not exist.
+// tryReadRuleFile attempts to read a rule file. Absolute paths are used directly.
+// Relative paths are resolved against repoDir only. Returns nil when the file
+// cannot be read safely or does not exist.
 func tryReadRuleFile(rule string, repoDir string) *string {
 	if repoDir == "" {
 		fmt.Fprintf(os.Stderr, "[WARN] repoDir is empty, treating rule as absolute path: %s\n", rule)
@@ -494,26 +495,16 @@ func tryReadRuleFile(rule string, repoDir string) *string {
 		return nil
 	}
 
-	// Relative path: try project dir first, then as-is (absolute).
+	// Relative path: resolve against repoDir only.
 	projectPath := filepath.Join(repoDir, rule)
 	content, err := readRuleFileSafe(projectPath)
 	if err == nil {
 		return &content
 	}
-	if !os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "[WARN] cannot read rule file %s: %v\n", projectPath, err)
-		return nil
-	}
-
-	// Not found in project dir — try as absolute path.
-	content, err = readRuleFileSafe(rule)
-	if err == nil {
-		return &content
-	}
 	if os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "[WARN] rule file not found: %s (tried project dir, then as absolute path)\n", rule)
+		fmt.Fprintf(os.Stderr, "[WARN] rule file not found: %s\n", rule)
 	} else {
-		fmt.Fprintf(os.Stderr, "[WARN] cannot read rule file %s: %v\n", rule, err)
+		fmt.Fprintf(os.Stderr, "[WARN] cannot read rule file %s: %v\n", projectPath, err)
 	}
 	return nil
 }
