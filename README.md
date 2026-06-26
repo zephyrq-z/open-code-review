@@ -554,9 +554,8 @@ Layers 1–3 share the same JSON format:
 
 - `path` supports `**` recursive matching and `{java,kt}` brace expansion.
 - `merge_system_rule` is optional. When `true`, the matched built-in system rule is merged with this user rule; otherwise the user rule replaces the system rule.
-
-
 - Within each layer, rules are evaluated in declaration order — the first match wins.
+- If a rule file does not exist, it is silently skipped.
 
 **The `rule` field supports both inline content and file paths.** The system auto-detects which one you mean:
 
