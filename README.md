@@ -1,115 +1,114 @@
-# test-rule — Rule Configuration Validation Suite
+# test-rule — 规则配置验证套件
 
-Validates that `.opencodereview/rule.json` files are correctly configured
-**without requiring the `ocr` binary to be compiled**. This is a standalone,
-observable test project that exercises the rule file resolution logic.
+验证 `.opencodereview/rule.json` 配置文件的正确性，
+**无需编译 `ocr` 二进制文件**。独立的、可观测的测试项目，覆盖规则文件解析的全部分支逻辑。
 
-## Quick Start
+## 快速开始
 
 ```bash
 bash run.sh
 ```
 
-Use `--verbose` for detailed output:
+使用 `--verbose` 查看详细输出：
 
 ```bash
 bash run.sh --verbose
 ```
 
-## Project Structure
+## 项目结构
 
 ```
 .
-├── run.sh                  # Test runner (self-contained, no ocr binary needed)
-├── rules/                  # Shared rule files (.md, .txt)
-│   ├── python.md           # Python code review rules
-│   ├── shared.md           # TypeScript/JS code review rules
-│   ├── rules.json          # Deliberately unsupported ext for test
+├── run.sh                  # 测试运行器（自包含，无需 ocr 二进制文件）
+├── rules/                  # 共享规则文件（.md、.txt）
+│   ├── python.md           # Python 代码审查规则
+│   ├── shared.md           # TypeScript/JS 代码审查规则
+│   ├── rules.json          # 故意使用不支持扩展名，用于测试
 │   └── nested/
-│       └── nested.md       # Nested subdirectory rule file
-└── scenarios/              # Standalone test scenarios
-    ├── 01-basic/           # File path + inline mixed
-    ├── 02-global-fallback/ # ~/.opencodereview/shared.md fallback
-    ├── 03-inline/          # Pure inline rule, no file lookup
-    ├── 04-missing-file/    # Missing file → [WARN] + value kept
-    ├── 05-unsupported-ext/ # .json ext → treated as inline
-    ├── 06-absolute-path/   # Absolute path → /tmp/absolute-rule.md
-    ├── 07-subdirectory/    # Relative subdirectory path
-    └── 08-regression/      # Normal review unaffected
+│       └── nested.md       # 嵌套子目录规则文件
+└── scenarios/              # 独立测试场景
+    ├── 01-basic/           # 文件路径 + 内联混合
+    ├── 02-global-fallback/ # ~/.opencodereview/shared.md 回退
+    ├── 03-inline/          # 纯内联规则，无文件查找
+    ├── 04-missing-file/    # 文件缺失 → [WARN] + 保留原值
+    ├── 05-unsupported-ext/ # .json 扩展名 → 视为内联
+    ├── 06-absolute-path/   # 绝对路径 → /tmp/absolute-rule.md
+    ├── 07-subdirectory/    # 相对子目录路径
+    └── 08-regression/      # 回归 — 正常审查不受影响
 ```
 
-## Test Scenarios
+## 测试场景
 
-| # | Scenario | What It Verifies |
+| # | 场景 | 验证内容 |
 |---|---|---|
-| 1 | **Basic** | File path (`rules/python.md`) loads content; inline rule stays as-is |
-| 2 | **Global fallback** | `shared.md` not in repo → resolved from `~/.opencodereview/shared.md` |
-| 3 | **Inline** | Rule value has no file extension → treated as inline text, no file lookup |
-| 4 | **Missing file** | `nonexistent.md` doesn't exist → validator reports NOT FOUND; ocr emits [WARN] |
-| 5 | **Unsupported ext** | `.json` extension → treated as inline, no error |
-| 6 | **Absolute path** | `/tmp/absolute-rule.md` → resolved directly |
-| 7 | **Subdirectory** | `rules/nested/nested.md` → resolved relative to repo root |
-| 8 | **Regression** | Normal review with rule.json present → no disruption |
+| 1 | **基本** | 文件路径（`rules/python.md`）加载内容；内联规则保持不变 |
+| 2 | **全局回退** | 仓库中无 `shared.md` → 从 `~/.opencodereview/shared.md` 解析 |
+| 3 | **内联** | 规则值无文件扩展名 → 视为内联文本，不触发文件查找 |
+| 4 | **文件缺失** | `nonexistent.md` 不存在 → 验证器报告 NOT FOUND；ocr 输出 [WARN] |
+| 5 | **扩展名不支持** | `.json` 扩展名 → 视为内联，不报错 |
+| 6 | **绝对路径** | `/tmp/absolute-rule.md` → 直接解析 |
+| 7 | **子目录** | `rules/nested/nested.md` → 相对于仓库根目录解析 |
+| 8 | **回归** | 有 rule.json 的正常审查不受影响 |
 
-## How It Works
+## 工作原理
 
-The test runner (`run.sh`) performs **observable validation** without running `ocr`:
+`run.sh` 在**不运行 `ocr`** 的情况下进行可观测验证：
 
-1. **JSON schema validation** — checks that every `rule.json` has a valid `rules` array with `path` and `rule` fields
-2. **File path detection** — uses the same heuristic as `ocr`:
-   - Single-line values ending in `.md`, `.txt`, or `.markdown` → file path
-   - Multi-line or other extensions → inline rule
-3. **File resolution** — mirrors `ocr`'s resolution order:
-   - Absolute paths → used directly
-   - Relative paths → repo root first, then `~/.opencodereview/`
-4. **Content verification** — reads referenced files, shows line count + first line
+1. **JSON schema 校验** — 检查每个 `rule.json` 是否有合法的 `rules` 数组，每个条目包含 `path` 和 `rule` 字段
+2. **文件路径检测** — 与 `ocr` 使用相同的启发式规则：
+   - 单行值以 `.md`、`.txt`、`.markdown` 结尾 → 文件路径
+   - 多行或其他扩展名 → 内联规则
+3. **文件解析** — 镜像 `ocr` 的解析顺序：
+   - 绝对路径 → 直接使用
+   - 相对路径 → 先仓库根目录，再 `~/.opencodereview/`
+4. **内容验证** — 读取引用文件，显示行数和首行内容
 
-## End-to-End Testing with `ocr`
+## 配合 `ocr` 端到端测试
 
-After building the `ocr` binary:
+编译 `ocr` 二进制文件后：
 
 ```bash
-# Build from source
-cd ~/Developer/LLM4SE/open-code-review && make build
+# 从源码编译
+make build
 
-# Test individual rules
-cd test-rule/scenarios/01-basic
-ocr rules check main.py     # Should show: rules/python.md content
-ocr rules check main.go     # Should show: "Check for nil pointers"
+# 测试单个规则
+cd scenarios/01-basic
+ocr rules check main.py     # 应显示 rules/python.md 的内容
+ocr rules check main.go     # 应显示 "Check for nil pointers"
 
 cd ../03-inline
-ocr rules check Main.java   # Should show: "All public methods must have Javadoc"
+ocr rules check Main.java   # 应显示 "All public methods must have Javadoc"
 
 cd ../04-missing-file
-ocr rules check main.go 2>&1     # Should show: [WARN] rule file not found
+ocr rules check main.go 2>&1     # 应显示 [WARN] rule file not found
 
-# Run full suite
+# 运行完整套件
 cd ../..
 bash run.sh
 ```
 
-## Rule File Format
+## 规则文件格式
 
 ```json
 {
   "rules": [
     {
-      "path": "<glob pattern>",
-      "rule": "<inline text OR path to .md/.txt/.markdown>"
+      "path": "<glob 模式>",
+      "rule": "<内联文本 或 .md/.txt/.markdown 文件路径>"
     }
   ]
 }
 ```
 
-### Supported rule file extensions
+### 支持的规则文件扩展名
 
 - `.md` — Markdown
-- `.txt` — Plain text
-- `.markdown` — Alternative markdown
+- `.txt` — 纯文本
+- `.markdown` — 替代 Markdown 扩展名
 
-### Resolution priority
+### 解析优先级
 
-1. Custom rule file specified via `--rule` flag
-2. Project-local `.opencodereview/rule.json`
-3. Global `~/.opencodereview/rule.json`
-4. Embedded system default rules
+1. `--rule` 参数指定的自定义规则文件
+2. 项目级 `.opencodereview/rule.json`
+3. 全局 `~/.opencodereview/rule.json`
+4. 内嵌系统默认规则
