@@ -298,6 +298,16 @@ Check code
 | 7. 子目录 | ✓ | | | | | | ✓ | |
 | 8. 回归 | | ✓ | | | | | | ✓ |
 
+## ⚠️ 跨平台说明
+
+`ocr` 内部使用 Go 标准库处理路径，**场景 2（`~/.opencodereview/` 回退）和场景 6（`/tmp/absolute-rule.md` 绝对路径）在所有操作系统上均不会报错**：
+
+- `os.UserHomeDir()` 负责 `~` 展开，macOS/Linux/Windows 均可用
+- `filepath.IsAbs()` 负责绝对路径判断，各平台按自身规则识别
+
+注意：`run.sh` 是 shell 脚本，依赖 `$HOME` 和 `/tmp`，仅在 macOS/Linux 下可用。
+
+
 ## 规则文件格式
 
 ```json
