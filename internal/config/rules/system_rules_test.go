@@ -1269,3 +1269,82 @@ func TestReadRuleFileSafe_Missing(t *testing.T) {
 		t.Fatal("expected error for missing file")
 	}
 }
+
+// ── path traversal tests ──
+
+func TestResolveRuleEntries_PathTraversalBlocked(t *testing.T) {
+	dir := t.TempDir()
+	// Create a file outside the repo dir to prove it is NOT read.
+	outside := filepath.Join(t.TempDir(), "outside.md")
+	if err := os.WriteFile(outside, []byte("should not be read\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []ProjectRuleEntry{
+		{Path: "**/*.go", Rule: outside}, // absolute path to outside — allowed
+		{Path: "**/*.ts", Rule: "../outside.md"}, // relative traversal — blocked
+	}
+	resolveRuleEntries(entries, dir)
+
+	// Absolute path to outside is allowed (explicit design choice).
+	if entries[0].Rule != "should not be read" {
+		t.Errorf("absolute path to outside should be allowed, got %q", entries[0].Rule)
+	}
+	// Relative traversal should be blocked and rule cleared.
+	if entries[1].Rule != "" {
+		t.Errorf("relative traversal should be blocked, got %q", entries[1].Rule)
+	}
+}
+
+func TestResolveRuleEntries_EmptyRepoDirRelative(t *testing.T) {
+	// When repoDir is empty and rule is relative, it should be rejected.
+	entries := []ProjectRuleEntry{
+		{Path: "**/*.go", Rule: "rules.md"},
+	}
+	resolveRuleEntries(entries, "")
+
+	if entries[0].Rule != "" {
+		t.Errorf("relative path with empty repoDir should be rejected, got %q", entries[0].Rule)
+	}
+}
+
+func TestResolveRuleEntries_EmptyRepoDirAbsolute(t *testing.T) {
+	dir := t.TempDir()
+	absFile := filepath.Join(dir, "abs.md")
+	if err := os.WriteFile(absFile, []byte("absolute content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []ProjectRuleEntry{
+		{Path: "**/*.go", Rule: absFile},
+	}
+	resolveRuleEntries(entries, "")
+
+	if entries[0].Rule != "absolute content" {
+		t.Errorf("absolute path with empty repoDir should work, got %q", entries[0].Rule)
+	}
+}
+
+func TestResolveRuleEntries_GlobalRuleFileResolution(t *testing.T) {
+	// Simulate loadGlobalRule: repoDir = filepath.Dir(~/.opencodereview/rule.json)
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	globalRuleDir := filepath.Join(homeDir, ".opencodereview")
+	if err := os.MkdirAll(globalRuleDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(globalRuleDir, "reusable.md"), []byte("global reusable rule\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []ProjectRuleEntry{
+		{Path: "**/*.go", Rule: "reusable.md"},
+	}
+	// repoDir = ~/.opencodereview (where rule.json lives)
+	resolveRuleEntries(entries, globalRuleDir)
+
+	if entries[0].Rule != "global reusable rule" {
+		t.Errorf("global rule file should be resolved, got %q", entries[0].Rule)
+	}
+}

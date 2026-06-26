@@ -327,6 +327,7 @@ func loadGlobalRule() (*ProjectRule, error) {
 	if err := json.Unmarshal(data, &pr); err != nil {
 		return nil, fmt.Errorf("unmarshal global rule: %w", err)
 	}
+	resolveRuleEntries(pr.Rules, filepath.Dir(path))
 	return &pr, nil
 }
 
@@ -440,6 +441,8 @@ func matchProjectRuleEntry(pr *ProjectRule, path string) *ProjectRuleEntry {
 	}
 	return nil
 }
+// allowedRuleExts is the set of file extensions permitted for rule file references.
+var allowedRuleExts = map[string]bool{".md": true, ".txt": true, ".markdown": true}
 
 // looksLikeFilePath returns true when s is likely a file path (not inline content).
 // Heuristic: multi-line text is always inline; single-line text without spaces
@@ -452,15 +455,14 @@ func looksLikeFilePath(s string) bool {
 	if strings.Contains(s, " ") {
 		return false
 	}
-	lower := strings.ToLower(s)
-	return strings.HasSuffix(lower, ".md") || strings.HasSuffix(lower, ".txt") || strings.HasSuffix(lower, ".markdown")
+	return allowedRuleExts[strings.ToLower(filepath.Ext(s))]
 }
 
 // resolveRuleEntries scans each entry's Rule field. When the value looks like a file
 // path, it reads the file content and replaces the Rule. Absolute paths are used
 // directly; relative paths are resolved against repoDir only. Multi-line and short
 // inline rules are left unchanged. If the file cannot be read, the Rule is cleared
-// (set to empty) and a [WARN] is emitted.
+// (set to empty) and a warning is emitted.
 func resolveRuleEntries(entries []ProjectRuleEntry, repoDir string) {
 	for i := range entries {
 		e := &entries[i]
@@ -476,11 +478,15 @@ func resolveRuleEntries(entries []ProjectRuleEntry, repoDir string) {
 }
 
 // tryReadRuleFile attempts to read a rule file. Absolute paths are used directly.
-// Relative paths are resolved against repoDir only. Returns nil when the file
-// cannot be read safely or does not exist.
+// Relative paths are resolved against repoDir and validated to stay within repoDir.
+// Returns nil when the file cannot be read safely or does not exist.
 func tryReadRuleFile(rule string, repoDir string) *string {
 	if repoDir == "" {
-		fmt.Fprintf(os.Stderr, "[WARN] repoDir is empty, treating rule as absolute path: %s\n", rule)
+		if !filepath.IsAbs(rule) {
+			fmt.Fprintf(os.Stderr, "[ocr] WARNING: cannot resolve relative rule path %q without a repo dir\n", rule)
+			return nil
+		}
+		fmt.Fprintf(os.Stderr, "[ocr] WARNING: repoDir is empty, treating rule as absolute path: %s\n", rule)
 	}
 	if filepath.IsAbs(rule) || repoDir == "" {
 		content, err := readRuleFileSafe(rule)
@@ -488,23 +494,29 @@ func tryReadRuleFile(rule string, repoDir string) *string {
 			return &content
 		}
 		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "[WARN] rule file not found: %s\n", rule)
+			fmt.Fprintf(os.Stderr, "[ocr] WARNING: rule file not found: %s\n", rule)
 		} else {
-			fmt.Fprintf(os.Stderr, "[WARN] cannot read rule file %s: %v\n", rule, err)
+			fmt.Fprintf(os.Stderr, "[ocr] WARNING: cannot read rule file %s: %v\n", rule, err)
 		}
 		return nil
 	}
 
-	// Relative path: resolve against repoDir only.
-	projectPath := filepath.Join(repoDir, rule)
-	content, err := readRuleFileSafe(projectPath)
+	// Relative path: resolve against repoDir, validate no traversal.
+	resolved := filepath.Clean(filepath.Join(repoDir, rule))
+	cleanRepo := filepath.Clean(repoDir)
+	if !strings.HasPrefix(resolved, cleanRepo+string(os.PathSeparator)) {
+		fmt.Fprintf(os.Stderr, "[ocr] WARNING: rule file path escapes repo dir: %s\n", rule)
+		return nil
+	}
+
+	content, err := readRuleFileSafe(resolved)
 	if err == nil {
 		return &content
 	}
 	if os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "[WARN] rule file not found: %s\n", rule)
+		fmt.Fprintf(os.Stderr, "[ocr] WARNING: rule file not found: %s\n", rule)
 	} else {
-		fmt.Fprintf(os.Stderr, "[WARN] cannot read rule file %s: %v\n", projectPath, err)
+		fmt.Fprintf(os.Stderr, "[ocr] WARNING: cannot read rule file %s: %v\n", resolved, err)
 	}
 	return nil
 }
@@ -519,9 +531,8 @@ func readRuleFileSafe(path string) (string, error) {
 		return "", err
 	}
 
-	ext := strings.ToLower(filepath.Ext(resolved))
-	if ext != ".md" && ext != ".txt" && ext != ".markdown" {
-		return "", fmt.Errorf("unsupported extension %q, only .md/.txt/.markdown allowed", ext)
+	if !allowedRuleExts[strings.ToLower(filepath.Ext(resolved))] {
+		return "", fmt.Errorf("unsupported extension %q, only .md/.txt/.markdown allowed", filepath.Ext(resolved))
 	}
 
 	const maxSize = 512 * 1024
