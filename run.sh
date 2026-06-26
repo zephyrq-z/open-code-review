@@ -8,12 +8,11 @@
 # Tests:
 #   1. File path rule — referenced .md loaded correctly
 #   2. Inline rule — stays as-is, no file lookup
-#   3. Global fallback — ~/.opencodereview/shared.md resolved
-#   4. Missing file — ERROR reported, original value kept
-#   5. Unsupported extension — treated as inline, no error
-#   6. Absolute path — resolved directly
-#   7. Subdirectory path — resolved relative to repo root
-#   8. Regression — normal review unaffected
+#   3. Missing file — [WARN] emitted, rule cleared
+#   4. Unsupported extension — treated as inline, no error
+#   5. Absolute path — resolved directly
+#   6. Subdirectory path — resolved relative to repo root
+#   7. Regression — normal review unaffected
 #
 # Usage: bash run.sh [--verbose]
 # ============================================================================
@@ -34,7 +33,6 @@ FAIL=0
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RULES_DIR="$SCRIPT_DIR/rules"
-GLOBAL_DIR="$HOME/.opencodereview"
 
 # ── helpers ──
 
@@ -80,10 +78,13 @@ except Exception as e:
 " 2>&1
 }
 
-# Check if a rule value looks like a file path (.md/.txt/.markdown)
+# Check if a rule value looks like a file path (.md/.txt/.markdown, single line, no spaces)
 looks_like_file_path() {
     local val="$1"
     if [[ "$val" == *$'\n'* ]]; then
+        return 1
+    fi
+    if [[ "$val" == *" "* ]]; then
         return 1
     fi
     local lower
@@ -91,7 +92,7 @@ looks_like_file_path() {
     [[ "$lower" == *.md || "$lower" == *.txt || "$lower" == *.markdown ]]
 }
 
-# Resolve a rule file path: repo dir first, then global ~/.opencodereview
+# Resolve a rule file path: repo dir only (absolute paths used directly)
 resolve_rule_file() {
     local rule="$1"
     local repo_dir="$2"
@@ -107,20 +108,7 @@ resolve_rule_file() {
         return
     fi
 
-    candidate="$GLOBAL_DIR/$rule"
-    if [[ -f "$candidate" ]]; then
-        echo "$candidate"
-        return
-    fi
-
     echo ""
-}
-
-is_supported_ext() {
-    local file="$1"
-    local lower
-    lower=$(echo "$file" | tr '[:upper:]' '[:lower:]')
-    [[ "$lower" == *.md || "$lower" == *.txt || "$lower" == *.markdown ]]
 }
 
 # Validate a single rule.json and its referenced files
@@ -167,12 +155,7 @@ for i, e in enumerate(data.get('rules', [])):
             resolved=$(resolve_rule_file "$rule_val" "$repo_dir")
 
             if [[ -z "$resolved" ]]; then
-                pass "entry[$idx] file-path '$rule_val' → NOT FOUND (value kept as-is, ocr emits [WARN])"
-                continue
-            fi
-
-            if ! is_supported_ext "$resolved"; then
-                pass "entry[$idx] '$rule_val' → unsupported ext, treated as INLINE"
+                pass "entry[$idx] file-path '$rule_val' → NOT FOUND (rule cleared, ocr emits [WARN])"
                 continue
             fi
 
@@ -231,13 +214,6 @@ if ! command -v python3 &>/dev/null; then
     exit 1
 fi
 
-# Ensure global shared.md exists
-if [[ ! -f "$GLOBAL_DIR/shared.md" ]]; then
-    echo -e "${YELLOW}Installing global shared.md for fallback test...${NC}"
-    mkdir -p "$GLOBAL_DIR"
-    cp "$RULES_DIR/shared.md" "$GLOBAL_DIR/shared.md"
-fi
-
 # Ensure /tmp/absolute-rule.md exists
 if [[ ! -f /tmp/absolute-rule.md ]]; then
     cat > /tmp/absolute-rule.md << 'ABSOLUTE'
@@ -258,37 +234,27 @@ verify_glob_matches "1. Basic" "$SCRIPT_DIR/scenarios/01-basic" "*.py" "main.py"
 verify_glob_matches "1. Basic" "$SCRIPT_DIR/scenarios/01-basic" "*.go" "main.go"
 
 # ── Test 2 ──
-validate_scenario "2. Global fallback" \
-    "$SCRIPT_DIR/scenarios/02-global-fallback"
-RESOLVED=$(resolve_rule_file "shared.md" "$SCRIPT_DIR/scenarios/02-global-fallback")
-if [[ -n "$RESOLVED" && "$RESOLVED" == "$GLOBAL_DIR/shared.md" ]]; then
-    pass "2. Global fallback 'shared.md' → $GLOBAL_DIR/shared.md"
-else
-    fail "2. Global fallback 'shared.md'" "resolved to '$RESOLVED', expected '$GLOBAL_DIR/shared.md'"
-fi
-
-# ── Test 3 ──
-validate_scenario "3. Inline rule — no file lookup" \
+validate_scenario "2. Inline rule — no file lookup" \
     "$SCRIPT_DIR/scenarios/03-inline"
 
-# ── Test 4 ──
-validate_scenario "4. Missing file — [WARN] + keeps value" \
+# ── Test 3 ──
+validate_scenario "3. Missing file — [WARN] + rule cleared" \
     "$SCRIPT_DIR/scenarios/04-missing-file"
 
-# ── Test 5 ──
-validate_scenario "5. Unsupported extension — treated as inline" \
+# ── Test 4 ──
+validate_scenario "4. Unsupported extension — treated as inline" \
     "$SCRIPT_DIR/scenarios/05-unsupported-ext"
 
-# ── Test 6 ──
-validate_scenario "6. Absolute path" \
+# ── Test 5 ──
+validate_scenario "5. Absolute path" \
     "$SCRIPT_DIR/scenarios/06-absolute-path"
 
-# ── Test 7 ──
-validate_scenario "7. Subdirectory path" \
+# ── Test 6 ──
+validate_scenario "6. Subdirectory path" \
     "$SCRIPT_DIR/scenarios/07-subdirectory"
 
-# ── Test 8 ──
-validate_scenario "8. Regression — standard review" \
+# ── Test 7 ──
+validate_scenario "7. Regression — standard review" \
     "$SCRIPT_DIR/scenarios/08-regression"
 
 # ── Summary ──
