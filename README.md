@@ -63,6 +63,66 @@ bash run.sh --verbose
    - 相对路径 → 先仓库根目录，再 `~/.opencodereview/`
 4. **内容验证** — 读取引用文件，显示行数和首行内容
 
+## 测试报告
+
+> 运行时间：2026-06-26 &nbsp;|&nbsp; 测试框架：`run.sh` &nbsp;|&nbsp; 总计：**20 项，全部通过**
+
+```
+═══ 1. 基本 — 文件路径加载，内联保持不变 ═══
+  ✓ JSON schema 合法
+  ✓ entry[0] '../../rules/python.md' → …/rules/python.md (41 行, 首行: "# Python Code Review Rules")
+  ✓ entry[1] 'Check for nil pointers' → INLINE（无文件查找）
+  ✓ glob '*.py' 匹配 'main.py'
+  ✓ glob '*.go' 匹配 'main.go'
+
+═══ 2. 全局回退 ═══
+  ✓ JSON schema 合法
+  ✓ entry[0] 'shared.md' → ~/.opencodereview/shared.md (8 行, 首行: "# TypeScript / JavaScript Code Review Rules")
+  ✓ 全局回退 'shared.md' → ~/.opencodereview/shared.md
+
+═══ 3. 内联规则 — 无文件查找 ═══
+  ✓ JSON schema 合法
+  ✓ entry[0] 'All public methods must have Javadoc' → INLINE（无文件查找）
+
+═══ 4. 文件缺失 — [WARN] + 保留原值 ═══
+  ✓ JSON schema 合法
+  ✓ entry[0] 文件路径 'nonexistent.md' → NOT FOUND（保留原值，ocr 输出 [WARN]）
+
+═══ 5. 扩展名不支持 — 视为内联 ═══
+  ✓ JSON schema 合法
+  ✓ entry[0] 'rules.json' → INLINE（无文件查找）
+
+═══ 6. 绝对路径 ═══
+  ✓ JSON schema 合法
+  ✓ entry[0] '/tmp/absolute-rule.md' → /tmp/absolute-rule.md (7 行, 首行: "# Absolute Path Rule")
+
+═══ 7. 子目录路径 ═══
+  ✓ JSON schema 合法
+  ✓ entry[0] '../../rules/nested/nested.md' → …/rules/nested/nested.md (25 行, 首行: "# Nested Rule — Deeply Scoped Review Standards")
+
+═══ 8. 回归 — 正常审查不受影响 ═══
+  ✓ JSON schema 合法
+  ✓ entry[0] 'Check code' → INLINE（无文件查找）
+
+═══════════════════════════════════════════════════
+  PASS: 20
+  FAIL: 0
+═══════════════════════════════════════════════════
+```
+
+### 覆盖矩阵
+
+| 场景 | JSON Schema | 文件路径解析 | 内联检测 | 全局回退 | 缺失处理 | 扩展名过滤 | 绝对路径 | 子目录 | 回归 |
+|---|---|---|---|---|---|---|---|---|
+| 1. 基本 | ✓ | ✓ | ✓ | — | — | — | — | — | — |
+| 2. 全局回退 | ✓ | ✓ | — | ✓ | — | — | — | — | — |
+| 3. 内联 | ✓ | — | ✓ | — | — | — | — | — | — |
+| 4. 文件缺失 | ✓ | ✓ | — | — | ✓ | — | — | — | — |
+| 5. 扩展名不支持 | ✓ | — | ✓ | — | — | ✓ | — | — | — |
+| 6. 绝对路径 | ✓ | ✓ | — | — | — | — | ✓ | — | — |
+| 7. 子目录 | ✓ | ✓ | — | — | — | — | — | ✓ | — |
+| 8. 回归 | ✓ | — | ✓ | — | — | — | — | — | ✓ |
+
 ## 配合 `ocr` 端到端测试
 
 编译 `ocr` 二进制文件后：
