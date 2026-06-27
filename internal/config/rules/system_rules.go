@@ -441,6 +441,7 @@ func matchProjectRuleEntry(pr *ProjectRule, path string) *ProjectRuleEntry {
 	}
 	return nil
 }
+
 // allowedRuleExts is the set of file extensions permitted for rule file references.
 var allowedRuleExts = map[string]bool{".md": true, ".txt": true, ".markdown": true}
 
@@ -486,9 +487,8 @@ func tryReadRuleFile(rule string, repoDir string) *string {
 			fmt.Fprintf(os.Stderr, "[ocr] WARNING: cannot resolve relative rule path %q without a repo dir\n", rule)
 			return nil
 		}
-		fmt.Fprintf(os.Stderr, "[ocr] WARNING: repoDir is empty, treating rule as absolute path: %s\n", rule)
 	}
-	if filepath.IsAbs(rule) || repoDir == "" {
+	if filepath.IsAbs(rule) {
 		content, err := readRuleFileSafe(rule)
 		if err == nil {
 			return &content
